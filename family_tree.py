@@ -1,7 +1,7 @@
 import json
 
 data = dict()
-with open("got-graph.json") as graph:
+with open("got-graph-images.json") as graph:
 	data = json.load(graph)
 
 new_graph = dict()

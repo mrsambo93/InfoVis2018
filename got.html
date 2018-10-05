@@ -5,24 +5,32 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style type="text/css">
-        .node {}
+        .node:not(:hover) .nodetext {
+            display: none;
+        }
 
         .link { stroke: #999; stroke-opacity: .6; stroke-width: 1px; }
 
         svg{
           display: block;
           margin: auto;
-          border: 1;
+          outline: solid black;
         }
     </style>
 </head>
 <body>
+<br>
 <svg width="1024" height="720"></svg>
 
 <script src="http://d3js.org/d3.v4.min.js" type="text/javascript"></script>
 <script src="http://d3js.org/d3-selection-multi.v1.js"></script>
 
 <script type="text/javascript">
+
+    var radius = 20
+
+    var placeholder = "http://icons.iconarchive.com/icons/limav/game-of-thrones/256/Stark-icon.png"
+
     var colors = d3.scaleOrdinal(d3.schemeCategory10);
 
     var svg = d3.select("svg")
@@ -36,13 +44,59 @@
         link;
 
     svg.append('defs').append('marker')
-        .attrs({'id':'arrowhead',
+        .attrs({'id':'arrowhead-end',
+            'opacity':1,
             'viewBox':'-0 -5 10 10',
-            'refX':13,
+            'refX':radius + 9.5,
             'refY':0,
             'orient':'auto',
-            'markerWidth':13,
-            'markerHeight':13,
+            'markerWidth':10,
+            'markerHeight':10,
+            'xoverflow':'visible'})
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', '#999')
+        .style('stroke','none');
+
+    svg.append("defs").append('marker')
+        .attrs({'id':'arrowhead-start',
+            'opacity':1,
+            'viewBox':'-0 -5 10 10',
+            'refX':radius + 9.5,
+            'refY':0,
+            'orient':'auto-start-reverse',
+            'markerWidth':10,
+            'markerHeight':10,
+            'xoverflow':'visible'})
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', '#999')
+        .style('stroke','none');
+
+    svg.append('defs').append('marker')
+        .attrs({'id':'arrowhead-end-fade',
+            'opacity':0.2,
+            'viewBox':'-0 -5 10 10',
+            'refX':radius + 9.5,
+            'refY':0,
+            'orient':'auto',
+            'markerWidth':10,
+            'markerHeight':10,
+            'xoverflow':'visible'})
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', '#999')
+        .style('stroke','none');
+
+    svg.append("defs").append('marker')
+        .attrs({'id':'arrowhead-start-fade',
+            'opacity':0.2,
+            'viewBox':'-0 -5 10 10',
+            'refX':radius + 9.5,
+            'refY':0,
+            'orient':'auto-start-reverse',
+            'markerWidth':10,
+            'markerHeight':10,
             'xoverflow':'visible'})
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
@@ -60,11 +114,19 @@
     })
 
     function update(links, nodes) {
+
         link = svg.selectAll(".link")
             .data(links)
             .enter()
             .append("line")
-            .attr("class", "link");
+            .attr("class", "link")
+            .attr("marker-start", function(d){
+                if(d.relation == "sibling" || d.relation == "lover" || d.relation == "spouse") {
+                    return "url(#arrowhead-start)";
+                }
+                return null;
+            })
+            .attr("marker-end", "url(#arrowhead-end)")
 
         link.append("title")
             .text(function (d) {return d.type;});
@@ -111,13 +173,33 @@
                     .on("end", dragended)
             );
 
-        node.append("circle")
-            .attr("r", 6)
-            .style("fill", function (d, i) {return colors(i);})
-
         node.append("text")
-            .attr("dy", -3)
-            .text(function (d) {return d.name;});
+            .attr("class", "nodetext")
+            .attr("dx", radius + 10)
+            .attr("dy", ".35em")
+            .text(function(d) { return d.name });
+        
+        node.append("circle")
+            .attr("r", radius)
+            .attr("fill", "black")
+
+        node.append("clipPath")
+            .attr("id", function(d, i) { return "img" + i })
+            .append("circle")
+                .attr("r", radius)
+
+        var images = node.append("image")
+            .attr("xlink:href", function(d) {
+                if(d.image) return d.image
+                return placeholder
+            })
+            .attr("x", function(d) { return -25;})
+            .attr("y", function(d) { return -25;})
+            .attr("height", 50)
+            .attr("width", 50)
+            .attr("clip-path", function(d, i) { return "url(#img"+ i +")" })
+            .on('mouseover', fade(0.2))
+            .on('mouseout', fade(1));
 
         simulation
             .nodes(nodes)
@@ -125,6 +207,38 @@
 
         simulation.force("link")
             .links(links);
+
+        const linkedByIndex = {};
+        links.forEach(function(d) {
+            linkedByIndex[d.source + "," + d.target] = 1;
+        });
+
+        function isConnected(a, b) {
+            return linkedByIndex[a + "," + b] || linkedByIndex[b + "," + a] || a == b;
+        }
+
+        function fade(opacity) {
+            return function(d) {
+                node.style("stroke-opacity", function(o) {
+                    thisOpacity = isConnected(d, o) ? 1 : opacity;
+                    this.setAttribute('fill-opacity', thisOpacity);
+                    return thisOpacity;
+                });
+
+                link.style("stroke-opacity", function(o) {
+                    return o.source === d || o.target === d ? 1 : opacity;
+                });
+                link.attr('marker-end', o => (opacity === 1 || o.source === d || o.target === d ? 
+                            'url(#arrowhead-end)' : 'url(#arrowhead-end-fade)'));
+                link.attr('marker-start', function(o) {
+                    if (o.relation == "sibling" || o.relation == "lover" || o.relation == "spouse") {
+                        if(opacity === 1 || o.source === d || o.target === d) 
+                            return 'url(#arrowhead-start)'; 
+                        return 'url(#arrowhead-start-fade)';
+                    }
+                })
+            };
+        }
     }
 
     function ticked() {
@@ -156,8 +270,8 @@
     }
 
     function dragstarted(d) {
-        //simulation.force("center", null)
-        //if (!d3.event.active) simulation.alphaTarget(0.3).restart()
+        // simulation.force("center", null)
+        if (!d3.event.active) simulation.alphaTarget(0.01).restart()
         d.fx = d.x;
         d.fy = d.y;
     }
@@ -168,8 +282,8 @@
     }
 
     function dragended(d) {
-        //if (!d3.event.active) simulation.alphaTarget(0);
-        simulation.alpha(1).restart()
+        if (!d3.event.active) simulation.alphaTarget(0);
+        simulation.alpha(0.1).restart()
         d.fx = undefined;
         d.fy = undefined;
     }
