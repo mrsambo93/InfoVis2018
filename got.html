@@ -5,6 +5,13 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style type="text/css">
+
+        .background {
+            fill: none;
+            pointer-events: all;
+            outline: solid black 
+        }
+
         .node:not(:hover) .nodetext {
             display: none;
         }
@@ -16,9 +23,21 @@
           margin: auto;
           outline: solid black;
         }
+        #opts {
+          width: 100px;
+          height: 30px;
+          margin-left: 320px;  
+        }
     </style>
 </head>
 <body>
+<br>
+<select id = "opts">
+    <option value="Families" selected="selected">Families</option>
+    <option value="War">War</option> 
+    <option value="ds3">data3</option>   
+</select>  
+<br>
 <br>
 <svg width="1024" height="720"></svg>
 
@@ -27,21 +46,34 @@
 
 <script type="text/javascript">
 
-    var radius = 20
+    var radius = 20;
 
-    var placeholder = "http://icons.iconarchive.com/icons/limav/game-of-thrones/256/Stark-icon.png"
+    var placeholder = "http://icons.iconarchive.com/icons/limav/game-of-thrones/256/Stark-icon.png";
 
     var colors = d3.scaleOrdinal(d3.schemeCategory10);
 
-    var svg = d3.select("svg")
-          .call(d3.zoom().on("zoom", function () {
-            svg.attr("transform", d3.event.transform)
-          }))
-          .append("g"),
+    var zoom = d3.zoom().on("zoom", zoomed).scaleExtent([.3, 3]);
+
+    var svg = d3.select("svg").on("click", stopped, true);
+    var active = d3.select(null);
+
+    var g1 = svg.append("g")
+    var g = svg.append("g"),
         width = +svg.attr("width"),
         height = +svg.attr("height"),
         node,
         link;
+
+    var background = g1.append("rect")
+        .attr("class", "background")
+        .attr("width", 3*width)
+        .attr("height", 3*height)
+        .on("click", reset);
+
+    svg.call(zoom)
+        .on('dblclick.zoom', null);
+
+    var tip;
 
     svg.append('defs').append('marker')
         .attrs({'id':'arrowhead-end',
@@ -103,25 +135,51 @@
         .attr('fill', '#999')
         .style('stroke','none');
 
-    var simulation = d3.forceSimulation()
-        .force("link", d3.forceLink().id(function (d) {return d.id;}).distance(100))
-        .force("charge", d3.forceManyBody().strength(-500).distanceMax(300))
-        .force("center", d3.forceCenter(width / 2, height / 2));
+    var simulation;
 
     d3.json("family_tree.json", function (error, graph) {
         if (error) throw error;
         update(graph.links, graph.nodes);
     })
 
+    d3.select('#opts')
+        .on("change", function() {
+            value = d3.select(this).property('value')
+            if(value == "Families") {
+                d3.json("family_tree.json", function (error, graph) {
+                    if (error) throw error;
+                    g.selectAll("*").remove();
+                    update(graph.links, graph.nodes);
+                })
+            } else if(value == "War") {
+                d3.json("war_graph.json", function (error, graph) {
+                    if (error) throw error;
+                    g.selectAll("*").remove();
+                    update(graph.links, graph.nodes);
+                })
+            }
+        })
+
     function update(links, nodes) {
 
-        link = svg.selectAll(".link")
+        simulation = d3.forceSimulation()
+        .force("link", d3.forceLink().id(function (d) {return d.id;}).distance(150).strength(2.01))
+        .force("charge", d3.forceManyBody().strength(-500).distanceMax(290))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collision", d3.forceCollide().radius(radius + 10))
+
+        var linkedByIndex = {};
+        links.forEach(function(d) {
+            linkedByIndex[d.source + "," + d.target] = 1;
+        });
+
+        link = g.selectAll(".link")
             .data(links)
             .enter()
             .append("line")
             .attr("class", "link")
             .attr("marker-start", function(d){
-                if(d.relation == "sibling" || d.relation == "lover" || d.relation == "spouse") {
+                if(d.relation == "sibling" || d.relation == "lover" || d.relation == "spouse" || d.relation == "allegiance") {
                     return "url(#arrowhead-start)";
                 }
                 return null;
@@ -131,7 +189,7 @@
         link.append("title")
             .text(function (d) {return d.type;});
 
-        edgepaths = svg.selectAll(".edgepath")
+        edgepaths = g.selectAll(".edgepath")
             .data(links)
             .enter()
             .append('path')
@@ -143,7 +201,7 @@
             })
             .style("pointer-events", "none");
 
-        edgelabels = svg.selectAll(".edgelabel")
+        edgelabels = g.selectAll(".edgelabel")
             .data(links)
             .enter()
             .append('text')
@@ -162,16 +220,19 @@
             .attr("startOffset", "50%")
             .text(function (d) {return d.relation});
 
-        node = svg.selectAll(".node")
+        node = g.selectAll(".node")
             .data(nodes)
             .enter()
             .append("g")
             .attr("class", "node")
-            .call(d3.drag()
+            /*.call(d3.drag()
                     .on("start", dragstarted)
                     .on("drag", dragged)
                     .on("end", dragended)
-            );
+            )*/
+            .on('mouseover', fade(0.2))
+            .on('mouseout', fade(1))
+            .on('click', clicked);
 
         node.append("text")
             .attr("class", "nodetext")
@@ -181,12 +242,12 @@
         
         node.append("circle")
             .attr("r", radius)
-            .attr("fill", "black")
+            .attr("fill", "black");
 
         node.append("clipPath")
             .attr("id", function(d, i) { return "img" + i })
             .append("circle")
-                .attr("r", radius)
+                .attr("r", radius - 1);
 
         var images = node.append("image")
             .attr("xlink:href", function(d) {
@@ -197,41 +258,44 @@
             .attr("y", function(d) { return -25;})
             .attr("height", 50)
             .attr("width", 50)
-            .attr("clip-path", function(d, i) { return "url(#img"+ i +")" })
-            .on('mouseover', fade(0.2))
-            .on('mouseout', fade(1));
+            .attr("clip-path", function(d, i) { return "url(#img"+ i +")" });
 
         simulation
             .nodes(nodes)
             .on("tick", ticked);
 
+        setTimeout(zoomFit, 1000);
+
         simulation.force("link")
             .links(links);
 
-        const linkedByIndex = {};
-        links.forEach(function(d) {
-            linkedByIndex[d.source + "," + d.target] = 1;
-        });
-
         function isConnected(a, b) {
-            return linkedByIndex[a + "," + b] || linkedByIndex[b + "," + a] || a == b;
+            return linkedByIndex[a.id + "," + b.id] || linkedByIndex[b.id + "," + a.id] || a.id == b.id;
         }
 
         function fade(opacity) {
             return function(d) {
-                node.style("stroke-opacity", function(o) {
-                    thisOpacity = isConnected(d, o) ? 1 : opacity;
-                    this.setAttribute('fill-opacity', thisOpacity);
+                if(opacity != 1) {
+                    d3.select(this).select("circle").style("stroke", "red");
+                } else {
+                    d3.select(this).select("circle").style("stroke", null);
+                }
+
+                node.style("opacity", function(o) {
+                    thisOpacity = isConnected(d, o) ? 1 : opacity + 0.3;
                     return thisOpacity;
                 });
 
                 link.style("stroke-opacity", function(o) {
                     return o.source === d || o.target === d ? 1 : opacity;
                 });
+                edgelabels.style("opacity", function(o) {
+                    return o.source === d || o.target === d ? 1 : opacity;
+                });
                 link.attr('marker-end', o => (opacity === 1 || o.source === d || o.target === d ? 
                             'url(#arrowhead-end)' : 'url(#arrowhead-end-fade)'));
                 link.attr('marker-start', function(o) {
-                    if (o.relation == "sibling" || o.relation == "lover" || o.relation == "spouse") {
+                    if (o.relation == "sibling" || o.relation == "lover" || o.relation == "spouse" || o.relation == "allegiance") {
                         if(opacity === 1 || o.source === d || o.target === d) 
                             return 'url(#arrowhead-start)'; 
                         return 'url(#arrowhead-start-fade)';
@@ -249,7 +313,8 @@
             .attr("y2", function (d) {return d.target.y;});
 
         node
-            .attr("transform", function (d) {return "translate(" + d.x + ", " + d.y + ")";});
+            .attr("transform", function (d) {
+                return "translate(" + d.x + ", " + d.y + ")";});
 
         edgepaths.attr('d', function (d) {
             return 'M ' + d.source.x + ' ' + d.source.y + ' L ' + d.target.x + ' ' + d.target.y;
@@ -267,6 +332,7 @@
                 return 'rotate(0)';
             }
         });
+
     }
 
     function dragstarted(d) {
@@ -287,6 +353,162 @@
         d.fx = undefined;
         d.fy = undefined;
     }
+
+    function clicked(d) {
+        string = d3.select(this).attr("transform");
+
+        translate = string.substring(string.indexOf("(")+1, string.indexOf(")")).split(",");
+        
+        var scale = 2
+
+        svg.transition()
+            .duration(750)
+            .call(zoom.transform, d3.zoomIdentity.translate(width/2 - scale*translate[0], height/2 - scale*translate[1]).scale(scale));
+
+        if(tip) closeTip();
+
+        n = d3.select(this)
+
+        string = n.attr("transform");
+
+        translate = string.substring(string.indexOf("(")+1, string.indexOf(")")).split(",");
+
+        tip = svg.append('g').style("opacity", 0);
+
+        var rect = tip.append("rect")
+                        .style("fill", "white")
+                        .style("stroke", "steelblue")
+                        .attr("rx", 6)
+                        .attr("ry", 6);
+
+        var image = placeholder;
+        if(d.image) image = d.image;
+
+        var imageSize = 150;
+        var margin = 10
+
+        tip.append("clipPath")
+            .attr("id", function(d, i) { return "tipimg" + i })
+            .append("rect")
+                .attr("width", imageSize)
+                .attr("height", imageSize)
+                .attr("x", margin);
+
+        tip.append("image")
+            .attr("xlink:href", image)
+            .attr("x", function(d) { return 5;})
+            .attr("y", function(d) { return 5;})
+            .attr("height", imageSize)
+            .attr("width", imageSize)
+            .attr("clip-path", function(d, i) { return "url(#tipimg"+ i +")" });
+
+        var i = 2;
+
+        var font = "20px"
+
+        tip.append("text")
+            .text("Name: " + d.name)
+            .attr("font-size", font)
+            .attr("dy", i + "em")
+            .attr("x", margin + imageSize + 5);
+
+        i++;
+
+        tip.append("text")
+            .text("Status: " + d.status)
+            .attr("font-size", font)
+            .attr("dy", i + "em")
+            .attr("x", margin + imageSize + 5);
+
+        i++;
+
+        if(d["house-birth"]) {
+            tip.append("text")
+                .text("House: " + d["house-birth"])
+                .attr("font-size", font)
+                .attr("dy", i + "em")
+                .attr("x", margin + imageSize + 5);
+    
+            i++;
+        }
+
+        if(d.group) {
+            tip.append("text")
+                .text("Group: " + d.group)
+                .attr("font-size", font)
+                .attr("dy", i + "em")
+                .attr("x", margin + imageSize + 5);
+    
+            i++;
+        }
+
+        if(d["house-marriage"]) {
+            tip.append("text")
+                .text("House marriage: " + d["house-marriage"])
+                .attr("font-size", font)
+                .attr("dy", i + "em")
+                .attr("x", margin + imageSize + 5);
+    
+            i++;
+        }
+
+        var bbox = tip.node().getBBox();
+        var w = bbox.width + 15;
+        var h = bbox.height + 5;
+        rect.attr("width", w)
+            .attr("height", h)
+
+        tip.attr("transform", "translate("+ (width - w) + ",0)");
+        tip.transition()
+            .duration(200)
+            .style("opacity", 1)
+    }
+
+    function zoomed() {
+        g.attr("transform", d3.event.transform);
+    }
+
+    function reset() {
+        if(tip) {
+            closeTip();
+        }
+        zoomFit();
+    }
+
+    function stopped() {
+        if (d3.event.defaultPrevented) d3.event.stopPropagation();
+    }
+
+    function zoomFit() {
+	    var bounds = g.node().getBBox();
+	    var parent = g.node().parentElement;
+	    var fullWidth = parent.clientWidth,
+	        fullHeight = parent.clientHeight;
+	    var width = bounds.width,
+	        height = bounds.height;
+	    var midX = bounds.x + width / 2,
+	        midY = bounds.y + height / 2;
+	    if (width == 0 || height == 0) return; // nothing to fit
+	    var scale = (0.75) / Math.max(width / fullWidth, height / fullHeight);
+	    var translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
+
+	    var transform = d3.zoomIdentity
+            .translate(translate[0], translate[1])
+            .scale(scale);
+
+        svg
+            .transition()
+            .duration(750) // milliseconds
+            .call(zoom.transform, transform);
+    }
+
+    function closeTip() {
+        tip.transition()
+            .duration(200)
+            .style("opacity", 0)
+            .remove();
+    }
+
 
 </script>
 
