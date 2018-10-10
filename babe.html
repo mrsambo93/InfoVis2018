@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Chord Diagram</title>
+    <style type="text/css">
+
+    path{
+        stroke: black;
+        stroke-width: 0.3px;
+    }
+    path.fade{
+        display: none;
+    }
+
+    </style>
+</head>
+<body>
+
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+
+        <script>
+
+            var margin = { top: 50, right: 10, bottom: 10, left: 50 },
+                width = 960 - margin.left - margin.right,
+                height = 600 - margin.top - margin.bottom,
+                innerRadius = Math.min(width, height) * .25,
+                outerRadius = innerRadius * 1.3;
+
+
+            var svg = d3.select("body").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+                .append("g")
+                .attr("class", "chordgraph")
+                .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+
+            d3.csv("Cartel2.csv", function (d) {
+                /*
+                 * IMPORTANT! Specify your first column of data here (see example data)
+                 *
+                 */
+                var primeColumn = "deathcause";
+                //store coloumn names
+                var pc = d.map(function (d) { return d[primeColumn]; }),
+                    po = pc.slice(0),
+                    pmaxtrix_size = (Object.keys(d[0]).length - 1) + pc.length,
+                    pmatrix = [];
+
+                //Create an empty square matrix of zero placeholders, the size of the ata
+                for (var i = 0; i < pmaxtrix_size; i++) {
+                    pmatrix.push(new Array(pmaxtrix_size + 1).join('0').split('').map(parseFloat));
+                }
+
+                //go through the data and convert all to numbers except "first_column"
+                for (var i = 0; i < d.length; i++) {
+
+                    var j = d.length;//counter
+
+                    for (var prop in d[i]) {
+                        if (prop != primeColumn) {
+                            pc.push(prop);
+                            pmatrix[i][j] = +d[i][prop];
+                            pmatrix[j][i] = +d[i][prop];
+                            j++;
+                        }
+                    }
+                }
+            });
+
+
+
+            d3.csv("Cartel1.csv", function (d) {
+                /*
+                 * IMPORTANT! Specify your first column of data here (see example data)
+                 *
+                 */
+                var firstColumn = "deathcause";
+                //store coloumn names
+                var fc = d.map(function (d) { return d[firstColumn]; }),
+                    fo = fc.slice(0),
+                    maxtrix_size = (Object.keys(d[0]).length - 1) + fc.length,
+                    matrix = [];
+
+                //Create an empty square matrix of zero placeholders, the size of the ata
+                for (var i = 0; i < maxtrix_size; i++) {
+                    matrix.push(new Array(maxtrix_size + 1).join('0').split('').map(parseFloat));
+                }
+
+                //go through the data and convert all to numbers except "first_column"
+                for (var i = 0; i < d.length; i++) {
+
+                    var j = d.length;//counter
+
+                    for (var prop in d[i]) {
+                        if (prop != firstColumn) {
+                            fc.push(prop);
+                            matrix[i][j] = +d[i][prop];
+                            matrix[j][i] = +d[i][prop];
+                            j++;
+                        }
+                    }
+                }
+
+                var chord = d3.layout.chord()
+                    .padding(.035)
+                    .sortSubgroups(d3.descending)
+                    .matrix(matrix);
+
+                var chordgroups = chord.groups()
+                    .map(function (d) { d.angle = (d.startAngle + d.endAngle) / 2; return d; });
+
+                var arc = d3.svg.arc()
+                    .innerRadius(innerRadius)
+                    .outerRadius(outerRadius);
+
+                var fill = d3.scale.category10();
+
+                /* var dataset = []
+                 d3.csv("Cartel2.csv", function (data) {
+                     dataset = data.map(function (d) { return [+s["deathcause"], +s["Image"]]; });
+                     console.log(dataset)
+                 });
+                 */
+                var righe;
+                d3.csv("Cartel2.csv", function (data) {
+                    righe = data;
+                    console.log(data);
+                });
+
+
+
+
+                svg.selectAll("path")
+                    .data(chord.groups)
+                    .enter()
+                    .append("path")
+                    //.style("fill", function (d, i) { return (d.index + 1) > fo.length ? fill(d.index) : "#ccc"; }) //VERSIONE 1.0
+                    .style("fill", function (d, i) { if ((d.index != 48) && ((d.index + 1) > fo.length)) { return "red" } else if (d.index == 48) { return "#008000" } else if ((d.index + 1) <= (fo.length)) { return "white" }; })
+
+                   // .filter(function (d) { return d.index == 48  })
+                   // .style("fill", "green")
+
+                    .style("stroke", function (d, i) { return "#000"; })
+                    .style("cursor", "pointer")
+                    .attr("d", arc)
+                    /*******************************************************************************************************/
+                    .on("click", function (d) {
+                        console.log(righe[d.index]);
+                    })
+
+
+                    .on("mouseover", function (d, i) {
+                        chords.classed("fade", function (d) {
+                            return d.source.index != i && d.target.index != i;
+                        })
+                    });
+
+
+
+                var chords = svg.append("g")
+                    .attr("class", "chord")
+                    .selectAll("path")
+                    .data(chord.chords)
+                    .enter()
+                    .append("path")
+                    //set the starting node. Change index from zero here.
+                    //to start with a target dataset, change d.source.index to d.target.index
+                    //.classed("fade", function(d,i){return d.source.index == 10 ? false : true;})
+                    .attr("d", d3.svg.chord().radius(innerRadius))
+                    //.style("fill", function(d) { return fill(d.source.subindex); }) //colora i collegamenti V 1.0
+                      .style("fill", function (d) { if ((d.source.subindex != 48) && ((d.source.subindex + 1) > fo.length)) { return "red" } else if (d.source.subindex == 48) { return "#008000" } else if ((d.source.subindex + 1) <= (fo.length)) { return "white" }; })
+
+                    .style("stroke", function (d) { return "#000"; });
+
+
+                svg.selectAll(".text")
+                    .data(chordgroups)
+                    .enter()
+                    .append("text")
+                    .attr("class", "text")
+                    .attr("text-anchor", function (d) { return d.angle > Math.PI ? "end" : null; })
+                    .attr("transform", function (d) {
+
+                        //rotate each label around the circle
+                        return "rotate(" + (d.angle * 180 / Math.PI - 90) + ")" +
+                               "translate(" + (outerRadius + 7) + ")" +
+                               (d.angle > Math.PI ? "rotate(175)" : "");
+
+                    })
+                    .text(function (d, i) {
+                        //set the text content
+                        return fc[i];
+                    })
+                    .style({
+                        "font-family": "sans-serif",
+                        "font-size": "10px"
+                    })
+
+            });
+        </script>
+</body>
+</html>
