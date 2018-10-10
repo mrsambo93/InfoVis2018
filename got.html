@@ -6,23 +6,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style type="text/css">
 
+        body {
+            background-image: url("https://d28hgpri8am2if.cloudfront.net/book_images/onix/interior_spreads/9781608877447/game-of-thrones-deluxe-hardcover-sketchbook-9781608877447.in05.jpg")
+        }
+
+        .header {
+            width:100%;
+            text-align:center;
+        }
+
+        .header img {
+            width: 500px;
+            height: 100px;
+            display:inline-block;
+            margin: 0 auto;
+        }
+
         .background {
             fill: none;
             pointer-events: all;
-            outline: solid black 
         }
 
         .node:not(:hover) .nodetext {
             display: none;
         }
 
-        .link { stroke: #999; stroke-opacity: .6; stroke-width: 1px; }
+        .link { stroke: black; stroke-opacity: 1; stroke-width: 1px; }
 
         svg{
           display: block;
           margin: auto;
-          outline: solid black;
+          outline: solid black; 
         }
+
         #opts {
           width: 100px;
           height: 30px;
@@ -31,14 +47,16 @@
     </style>
 </head>
 <body>
-<br>
+    <div class="header">
+        <img src="https://www.logolynx.com/images/logolynx/b1/b106f5584f54b1227cbd74cf73849a7d.png" alt="logo" />
+    </div>
 <select id = "opts">
     <option value="Families" selected="selected">Families</option>
     <option value="War">War</option> 
     <option value="ds3">data3</option>   
 </select>  
-<br>
-<br>
+<br/>
+<br/>
 <svg width="1024" height="720"></svg>
 
 <script src="http://d3js.org/d3.v4.min.js" type="text/javascript"></script>
@@ -56,6 +74,17 @@
 
     var svg = d3.select("svg").on("click", stopped, true);
     var active = d3.select(null);
+
+    var filter = svg.append("defs")
+                    .append("filter")
+                        .attr("id", "blur")
+                    .append("feGaussianBlur")
+                        .attr("stdDeviation", 9);
+
+    svg.append("image")
+        .attr("xlink:href", "https://d28hgpri8am2if.cloudfront.net/book_images/onix/interior_spreads/9781608877447/game-of-thrones-deluxe-hardcover-sketchbook-9781608877447.in05.jpg")
+        .style("opacity", ".7")
+        .attr("filter", "url(#blur)");
 
     var g1 = svg.append("g")
     var g = svg.append("g"),
@@ -87,7 +116,7 @@
             'xoverflow':'visible'})
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-        .attr('fill', '#999')
+        .attr('fill', 'black')
         .style('stroke','none');
 
     svg.append("defs").append('marker')
@@ -102,7 +131,7 @@
             'xoverflow':'visible'})
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-        .attr('fill', '#999')
+        .attr('fill', 'black')
         .style('stroke','none');
 
     svg.append('defs').append('marker')
@@ -117,7 +146,7 @@
             'xoverflow':'visible'})
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-        .attr('fill', '#999')
+        .attr('fill', 'black')
         .style('stroke','none');
 
     svg.append("defs").append('marker')
@@ -132,7 +161,7 @@
             'xoverflow':'visible'})
         .append('svg:path')
         .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
-        .attr('fill', '#999')
+        .attr('fill', 'black')
         .style('stroke','none');
 
     var simulation;
@@ -210,7 +239,7 @@
                 'class': 'edgelabel',
                 'id': function (d, i) {return 'edgelabel' + i},
                 'font-size': 10,
-                'fill': '#aaa'
+                'fill': 'black'
             });
 
         edgelabels.append('textPath')
@@ -225,11 +254,11 @@
             .enter()
             .append("g")
             .attr("class", "node")
-            /*.call(d3.drag()
+            .call(d3.drag()
                     .on("start", dragstarted)
                     .on("drag", dragged)
                     .on("end", dragended)
-            )*/
+            )
             .on('mouseover', fade(0.2))
             .on('mouseout', fade(1))
             .on('click', clicked);
@@ -264,10 +293,10 @@
             .nodes(nodes)
             .on("tick", ticked);
 
-        setTimeout(zoomFit, 1000);
-
         simulation.force("link")
             .links(links);
+
+        setTimeout(zoomFit, 3000);
 
         function isConnected(a, b) {
             return linkedByIndex[a.id + "," + b.id] || linkedByIndex[b.id + "," + a.id] || a.id == b.id;
@@ -376,8 +405,8 @@
         tip = svg.append('g').style("opacity", 0);
 
         var rect = tip.append("rect")
-                        .style("fill", "white")
-                        .style("stroke", "steelblue")
+                        .style("fill", "#c2b280")
+                        .style("stroke", "black")
                         .attr("rx", 6)
                         .attr("ry", 6);
 
