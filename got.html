@@ -12,7 +12,7 @@
 
         path{
             stroke: black;
-            stroke-width: 0.3px;
+            stroke-width: 0.5px;
         }
 
         path.fade{
@@ -46,18 +46,28 @@
             font-size: 10px;
             font-family: sans-serif;
         }
+        
+        .infoText {
+            font-size: 14px;
+            font-family: sans-serif;
+            display: block;
+            margin: auto;
+            text-align: center;
+        }
 
         svg{
-          display: block;
-          margin: auto;
-          outline: solid black; 
+            display: block;
+            margin: auto;
+            outline: solid black; 
         }
 
         #opts {
-          width: 100px;
-          height: 30px;
-          display: block;
-          margin: 0 auto;
+            width: 130px;
+            height: 30px;
+            display: block;
+            margin: 0 auto;
+            font-size: 16px;
+            font-family: sans-serif;
         }
     </style>
 </head>
@@ -68,9 +78,12 @@
 <select id = "opts">
     <option value="Families" selected="selected">Families</option>
     <option value="War">War</option> 
-    <option value="data3">data3</option>   
+    <option value="data3">How they died</option>   
 </select>  
 <br/>
+    <p id= "p1" class= "infoText">
+        Dummy
+    </p>
 <br/>
 <svg width="1024" height="720"></svg>
 
@@ -84,6 +97,9 @@
     <script type="text/javascript">
 
     var radius = 20;
+
+    var info1 = "Until the end of season 7";
+    var info2 = "Until the end of season 5";
 
     var placeholder = "http://icons.iconarchive.com/icons/limav/game-of-thrones/256/Stark-icon.png";
 
@@ -117,9 +133,6 @@
         .attr("width", 3*width)
         .attr("height", 3*height)
         .on("click", reset);
-
-    svg.call(zoom)
-        .on('dblclick.zoom', null);
 
     var tip;
 
@@ -184,9 +197,14 @@
         .style('stroke','none');
 
     var simulation;
+    var resetScale;
 
     d3.json("family_tree.json", function (error, graph) {
         if (error) throw error;
+        document.getElementById("p1").innerHTML = info1;
+        resetScale = 0.75;
+        svg.call(zoom)
+            .on('dblclick.zoom', null);
         update(graph.links, graph.nodes);
     })
 
@@ -196,17 +214,30 @@
             if(value == "Families") {
                 d3.json("family_tree.json", function (error, graph) {
                     if (error) throw error;
+                    document.getElementById("p1").innerHTML = info1;
+                    resetScale = 0.75;
+                    if(tip) closeTip();
+                    svg.call(zoom)
+                        .on('dblclick.zoom', null);
                     g.selectAll("*").remove();
                     update(graph.links, graph.nodes);
                 })
             } else if(value == "War") {
                 d3.json("war_graph.json", function (error, graph) {
                     if (error) throw error;
+                    document.getElementById("p1").innerHTML = info1;
+                    resetScale = 0.75;
+                    if(tip) closeTip();
+                    svg.call(zoom)
+                        .on('dblclick.zoom', null);
                     g.selectAll("*").remove();
                     update(graph.links, graph.nodes);
                 })
             }
             else if (value == "data3") {
+                document.getElementById("p1").innerHTML = info2;
+                resetScale = 1;
+                if(tip) closeTip();
                     g.selectAll("*").remove();
                     data3();
                 }
@@ -320,7 +351,7 @@
         simulation.force("link")
             .links(links);
 
-        setTimeout(zoomFit, 3000);
+        setTimeout(function() { zoomFit(resetScale) }, 3000);
 
         function isConnected(a, b) {
             return linkedByIndex[a.id + "," + b.id] || linkedByIndex[b.id + "," + a.id] || a.id == b.id;
@@ -525,14 +556,14 @@
         if(tip) {
             closeTip();
         }
-        zoomFit();
+        zoomFit(resetScale);
     }
 
     function stopped() {
         if (d3.event.defaultPrevented) d3.event.stopPropagation();
     }
 
-    function zoomFit() {
+    function zoomFit(s) {
 	    var bounds = g.node().getBBox();
 	    var parent = g.node().parentElement;
 	    var fullWidth = parent.clientWidth,
@@ -542,7 +573,7 @@
 	    var midX = bounds.x + width / 2,
 	        midY = bounds.y + height / 2;
 	    if (width == 0 || height == 0) return; // nothing to fit
-	    var scale = (0.75) / Math.max(width / fullWidth, height / fullHeight);
+	    var scale = s / Math.max(width / fullWidth, height / fullHeight);
 	    var translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
 
 	    var transform = d3.zoomIdentity
@@ -685,7 +716,7 @@
                 .style("cursor", "pointer")
                 .attr("d", arc)
                 /*******************************************************************************************************/
-                .on("click", function (d) {
+                .on("click", function (d, index) {
 
                     if ((d.index + 1) <= (fo.length)) {
                         if(tip) closeTip();
@@ -702,7 +733,7 @@
                         console.log(image);
 
                         var imageSize = 150;
-                        var margin = 10
+                        var margin = 10;
 
                         tip.append("clipPath")
                             .attr("id", function(d, i) { return "tipimg" + i })
@@ -719,66 +750,68 @@
                             .attr("width", imageSize)
                             .attr("clip-path", function(d, i) { return "url(#tipimg"+ i +")" });
 
-                        var i = 2;
+                        var i = 9;
 
                         var font = "20px"
 
                         tip.append("text")
-                            .text("Name: " + d.name)
+                            .text("Name: " + fc[index])
                             .attr("font-size", font)
                             .attr("dy", i + "em")
-                            .attr("x", margin + imageSize + 5);
-
-                        i++;
-
-                        tip.append("text")
-                            .text("Status: " + d.status)
-                            .attr("font-size", font)
-                            .attr("dy", i + "em")
-                            .attr("x", margin + imageSize + 5);
+                            .attr("x", margin + 5);
 
                         i++;
                     
-                        if(d["house-birth"]) {
-                            tip.append("text")
-                                .text("House: " + d["house-birth"])
-                                .attr("font-size", font)
-                                .attr("dy", i + "em")
-                                .attr("x", margin + imageSize + 5);
+                        d3.json("got-graph-images.json", function(data) {
+                            
+                            ns = data["nodes"];
 
-                            i++;
-                        }
-
-                        if(d.group) {
-                            tip.append("text")
-                                .text("Group: " + d.group)
-                                .attr("font-size", font)
-                                .attr("dy", i + "em")
-                                .attr("x", margin + imageSize + 5);
-
-                            i++;
-                        }
-
-                        if(d["house-marriage"]) {
-                            tip.append("text")
-                                .text("House marriage: " + d["house-marriage"])
-                                .attr("font-size", font)
-                                .attr("dy", i + "em")
-                                .attr("x", margin + imageSize + 5);
-
-                            i++;
-                        }
-
-                        var bbox = tip.node().getBBox();
-                        var w = bbox.width + 15;
-                        var h = bbox.height + 5;
-                        rect.attr("width", w)
-                            .attr("height", h)
-
-                        tip.attr("transform", "translate("+ (width - w) + ",0)");
-                        tip.transition()
-                            .duration(200)
-                            .style("opacity", 1)
+                            ns.forEach(el => {
+                                if(fc[index].includes(el.name) ||
+                                    el.name.includes(fc[index]) ||
+                                    (fc[index] == "Bran Stark" && el.name == "Brandon Stark")) {
+                                    if(el["house-birth"]) {
+                                        tip.append("text")
+                                            .text("House: " + el["house-birth"])
+                                            .attr("font-size", font)
+                                            .attr("dy", i + "em")
+                                            .attr("x", margin + 5);
+                                            
+                                        i++;
+                                    }
+                                
+                                    if(el.group) {
+                                        tip.append("text")
+                                            .text("Group: " + el.group)
+                                            .attr("font-size", font)
+                                            .attr("dy", i + "em")
+                                            .attr("x", margin + 5);
+                                    
+                                        i++;
+                                    }
+                                
+                                    if(el["house-marriage"]) {
+                                        tip.append("text")
+                                            .text("House marriage: " + el["house-marriage"])
+                                            .attr("font-size", font)
+                                            .attr("dy", i + "em")
+                                            .attr("x", margin + 5);
+                                    
+                                        i++;
+                                    }
+                                }
+                            })
+                            var bbox = tip.node().getBBox();
+                            var w = bbox.width + 15;
+                            var h = bbox.height + 10;
+                            rect.attr("width", w)
+                                .attr("height", h)
+                        
+                            tip.attr("transform", "translate("+ (width - w) + ",0)");
+                            tip.transition()
+                                .duration(200)
+                                .style("opacity", 1)
+                        })
                     } else {
                         closeTip();
                     }
@@ -828,7 +861,7 @@
                     return fc[i];
                 })
 
-            zoomFit();
+            zoomFit(resetScale);
 
         });
     }
